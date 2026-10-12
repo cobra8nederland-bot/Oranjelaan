@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#d9e6ef">
+<title>Oranjelaan 12</title>
+<style>
+  :root {
+    --bg: #d9e6ef; --panel: rgba(255,255,255,0.93); --ink: #1f2830; --muted: #5f6c78;
+    --line: rgba(31,40,48,0.12); --accent: #f07d00; --chip: #edf1f5; --on: #1f2830; --on-ink: #fff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) { --panel: rgba(27,32,38,0.93); --ink: #eef2f6; --muted: #a6b2be; --line: rgba(255,255,255,0.14); --chip: #2c343d; --on: #f07d00; --on-ink: #1f2830; }
+  }
+  :root[data-theme="dark"] { --panel: rgba(27,32,38,0.93); --ink: #eef2f6; --muted: #a6b2be; --line: rgba(255,255,255,0.14); --chip: #2c343d; --on: #f07d00; --on-ink: #1f2830; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; overflow: hidden; position: fixed; inset: 0; background: var(--bg); color: var(--ink);
+    font: 14px/1.35 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif; -webkit-user-select: none; user-select: none; overscroll-behavior: none; }
+  #app { position: fixed; inset: 0; }
+  #app canvas { display: block; touch-action: none; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 4px 18px rgba(0,0,0,0.12);
+    -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
+  #card { position: absolute; top: max(10px, env(safe-area-inset-top)); left: max(12px, env(safe-area-inset-left)); right: max(12px, env(safe-area-inset-right));
+    max-width: 380px; padding: 10px 13px; }
+  #card h1 { margin: 0; font-size: 19px; display: flex; align-items: center; gap: 7px; letter-spacing: -0.01em; }
+  #card h1::before { content: ""; width: 10px; height: 10px; border-radius: 3px; background: var(--accent); }
+  #card .sub { color: var(--muted); font-size: 12px; }
+  #facts { display: grid; grid-template-columns: auto 1fr auto 1fr; gap: 2px 8px; margin-top: 7px; font-size: 12.5px; }
+  #facts dt { color: var(--muted); } #facts dd { margin: 0; font-weight: 600; font-variant-numeric: tabular-nums; }
+  #more { display: none; margin-top: 6px; font-size: 11.5px; color: var(--muted); }
+  #card.open #more { display: block; }
+  #toggle { margin-top: 6px; border: 0; background: none; color: var(--accent); font: inherit; font-size: 12px; font-weight: 600; padding: 0; cursor: pointer; }
+  #bar { position: absolute; left: max(10px, env(safe-area-inset-left)); right: max(10px, env(safe-area-inset-right)); bottom: max(10px, env(safe-area-inset-bottom)); padding: 8px 10px; }
+  #views { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { appearance: none; border: 0; font: inherit; font-size: 13px; font-weight: 600; padding: 7px 11px; border-radius: 999px; background: var(--chip); color: var(--ink); cursor: pointer; }
+  .chip[aria-pressed="true"] { background: var(--on); color: var(--on-ink); }
+  #credit { margin-top: 7px; font-size: 10.5px; color: var(--muted); }
+  #credit a { color: inherit; }
+  #overlay { position: fixed; inset: 0; display: flex; flex-direction: column; gap: 14px; align-items: center; justify-content: center; background: var(--bg); color: #1f2830; z-index: 10; text-align: center; padding: 24px; }
+  #overlay.hide { display: none; }
+  .spinner { width: 42px; height: 42px; border-radius: 50%; border: 4px solid rgba(31,40,48,0.15); border-top-color: #f07d00; animation: spin 0.9s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  #retry { display: none; appearance: none; border: 1px solid rgba(31,40,48,0.2); background: #fff; border-radius: 12px; padding: 9px 14px; font: inherit; font-weight: 600; }
+  .err { color: #a3261b; font-weight: 600; }
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<div id="app"></div>
+<div id="card" class="panel">
+  <h1>Oranjelaan 12</h1>
+  <div class="sub">1901 TX Castricum · 3DBAG LoD2.2 + PDOK-luchtfoto</div>
+  <dl id="facts"></dl>
+  <div id="more"></div>
+  <button id="toggle">Meer gegevens</button>
+</div>
+<div id="bar" class="panel">
+  <div id="views">
+    <button class="chip" data-v="rond" aria-pressed="true">Rondom</button>
+    <button class="chip" data-v="voor">Voorgevel</button>
+    <button class="chip" data-v="achter">Achterkant</button>
+    <button class="chip" data-v="boven">Bovenaanzicht</button>
+    <button class="chip" data-v="straat">Vanaf de straat</button>
+  </div>
+  <div id="credit">Vorm: <a href="https://3dbag.nl" target="_blank" rel="noopener">3DBAG</a> (TU Delft, AHN5 2022) · Luchtfoto: PDOK/Beeldmateriaal Nederland · Gegevens: BAG. Dakvlakken tonen de echte luchtfoto; gevelsteen is een benadering (geen gevelfoto's).</div>
+</div>
+<div id="overlay"><div class="spinner" id="spin"></div><div id="msg">Oranjelaan 12 laden…</div><button id="retry">Opnieuw proberen</button></div>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import * as BGU from 'three/addons/utils/BufferGeometryUtils.js';
+
+const TARGET = '0383100000012506';
+const NL = (n, d = 0) => Number(n).toLocaleString('nl-NL', { minimumFractionDigits: d, maximumFractionDigits: d });
+const $ = (id) => document.getElementById(id);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, logarithmicDepthBuffer: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2)); renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05;
+$('app').appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xd9e6ef); scene.fog = new THREE.Fog(0xd9e6ef, 120, 260);
+const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.1, 2000);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true; controls.maxPolarAngle = Math.PI * 0.495; controls.minDistance = 4; controls.maxDistance = 160;
+controls.touches = { ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN };
+scene.add(new THREE.HemisphereLight(0xeef5ff, 0x7d6f58, 1.0));
+const sun = new THREE.DirectionalLight(0xfff1dc, 2.4);
+sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048); sun.shadow.bias = -0.0003; sun.shadow.normalBias = 0.03;
+Object.assign(sun.shadow.camera, { left: -60, right: 60, top: 60, bottom: -60, near: 1, far: 300 });
+scene.add(sun, sun.target);
+
+// ---------- brick texture (waalformaat, halfsteensverband) ----------
+function brickTexture(base, seed) {
+  const W = 1024, H = 1024, cols = 8, rows = 32; // 8 stenen breed, 32 lagen hoog
+  const c = document.createElement('canvas'); c.width = W; c.height = H; const g = c.getContext('2d');
+  g.fillStyle = '#b8b0a2'; g.fillRect(0, 0, W, H); // voeg
+  const bw = W / cols, bh = H / rows, j = 5; let s = seed;
+  const rnd = () => ((s = (s * 16807) % 2147483647) / 2147483647);
+  const b = new THREE.Color(base);
+  for (let r = 0; r < rows; r++) {
+    const off = r % 2 ? bw / 2 : 0;
+    for (let k = -1; k <= cols; k++) {
+      const x = k * bw + off; const col = b.clone();
+      const v = (rnd() - 0.5) * 0.16; col.offsetHSL((rnd() - 0.5) * 0.02, (rnd() - 0.5) * 0.08, v);
+      g.fillStyle = '#' + col.getHexString(); g.fillRect(x + j / 2, r * bh + j / 2, bw - j, bh - j);
+      // fijne textuur in de steen
+      for (let n = 0; n < 6; n++) { g.fillStyle = `rgba(0,0,0,${rnd() * 0.08})`; g.fillRect(x + j + rnd() * (bw - 3 * j), r * bh + j + rnd() * (bh - 3 * j), 3 + rnd() * 8, 2 + rnd() * 3); }
+    }
+  }
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = renderer.capabilities.getMaxAnisotropy(); return t;
+}
+// steen 210 mm + voeg 10 mm = 0,22 m per kop; laag 50 mm + voeg 12,5 mm = 0,0625 m
+const BRICK_REPEAT_U = 8 * 0.22, BRICK_REPEAT_V = 32 * 0.0625;
+
+// ---------- geometry helpers ----------
+function newell(pts) {
+  const n = new THREE.Vector3();
+  for (let i = 0; i < pts.length; i++) { const a = pts[i], b = pts[(i + 1) % pts.length]; n.x += (a.y - b.y) * (a.z + b.z); n.y += (a.z - b.z) * (a.x + b.x); n.z += (a.x - b.x) * (a.y + b.y); }
+  return n.normalize();
+}
+// polygon (with holes) -> triangles, in world coords
+function triangulate(rings) {
+  const outer = rings[0]; const n = newell(outer);
+  const u = new THREE.Vector3(); if (Math.abs(n.y) < 0.9) u.set(0, 1, 0).cross(n).normalize(); else u.set(1, 0, 0);
+  const v = new THREE.Vector3().crossVectors(n, u);
+  const to2 = (p) => new THREE.Vector2(p.dot(u), p.dot(v));
+  const contour = outer.map(to2), holes = rings.slice(1).map((r) => r.map(to2));
+  const all = outer.concat(...rings.slice(1));
+  const tris = THREE.ShapeUtils.triangulateShape(contour, holes);
+  return { tris, all, n };
+}
+
+let origin, ground0, aerial, houseCenter, houseInfo = {};
+async function load() {
+  const j = (u) => fetch(u).then((r) => { if (!r.ok) throw new Error(u + ' ' + r.status); return r.json(); });
+  const [bag3d, vbo, meta, tex] = await Promise.all([
+    j('./data/3dbag.json'), j('./data/bag_vbo.json'), j('./data/meta.json'),
+    new THREE.TextureLoader().loadAsync('./data/luchtfoto.jpg'),
+  ]);
+  tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = renderer.capabilities.getMaxAnisotropy(); aerial = tex;
+  origin = meta.center_rd; const bb = meta.bbox_rd;
+  const target = bag3d.features.find((f) => f.id.endsWith(TARGET));
+  ground0 = target ? target.CityObjects['NL.IMBAG.Pand.' + TARGET].attributes.b3_h_maaiveld : 0;
+  const W = (x, y, z) => new THREE.Vector3(x - origin[0], z - ground0, -(y - origin[1]));
+  const uvOf = (p) => [(p.x + origin[0] - bb[0]) / (bb[2] - bb[0]), (-p.z + origin[1] - bb[1]) / (bb[3] - bb[1])];
+
+  // ground with aerial photo
+  const gw = bb[2] - bb[0], gh = bb[3] - bb[1];
+  const gg = new THREE.PlaneGeometry(gw, gh); gg.rotateX(-Math.PI / 2);
+  gg.translate((bb[0] + bb[2]) / 2 - origin[0], 0, -((bb[1] + bb[3]) / 2 - origin[1]));
+  const ground = new THREE.Mesh(gg, new THREE.MeshStandardMaterial({ map: tex, roughness: 1 }));
+  ground.receiveShadow = true; scene.add(ground);
+  const skirt = new THREE.Mesh(new THREE.PlaneGeometry(1200, 1200).rotateX(-Math.PI / 2).translate(0, -0.05, 0), new THREE.MeshStandardMaterial({ color: 0x8f9a7c, roughness: 1 }));
+  scene.add(skirt);
+
+  const parts = { roofT: [], wallT: [], roofN: [], wallN: [] };
+  for (const f of bag3d.features) {
+    const T = f.transform || bag3d.metadata.transform;
+    const verts = f.vertices.map((v) => W(v[0] * T.scale[0] + T.translate[0], v[1] * T.scale[1] + T.translate[1], v[2] * T.scale[2] + T.translate[2]));
+    const isT = f.id.endsWith(TARGET);
+    for (const [key, o] of Object.entries(f.CityObjects)) {
+      if (o.type === 'Building') { if (isT) houseInfo = o.attributes; continue; }
+      const geom = (o.geometry || []).find((g) => g.lod === '2.2') || (o.geometry || []).find((g) => g.lod === '1.3');
+      if (!geom || geom.type !== 'Solid') continue;
+      const surf = geom.semantics ? geom.semantics.surfaces : [], vals = geom.semantics ? geom.semantics.values[0] : [];
+      geom.boundaries[0].forEach((poly, si) => {
+        const s = surf[vals ? vals[si] : -1]; const type = s ? s.type : 'WallSurface';
+        if (type === 'GroundSurface') return;
+        const rings = poly.map((r) => r.map((i) => verts[i]));
+        const { tris, all, n } = triangulate(rings);
+        const pos = [], uv = [], nor = [];
+        const roof = type === 'RoofSurface';
+        // wall UV: horizontal distance along the wall, vertical height (metres)
+        const h = new THREE.Vector3(-n.z, 0, n.x); if (h.lengthSq() < 1e-6) h.set(1, 0, 0); h.normalize();
+        for (const t of tris) for (const k of t) {
+          const p = all[k]; pos.push(p.x, p.y, p.z); nor.push(n.x, n.y, n.z);
+          if (roof) uv.push(...uvOf(p)); else uv.push(p.dot(h) / BRICK_REPEAT_U, (p.y) / BRICK_REPEAT_V);
+        }
+        const g = new THREE.BufferGeometry();
+        g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+        g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+        g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+        parts[(roof ? 'roof' : 'wall') + (isT ? 'T' : 'N')].push(g);
+      });
+    }
+  }
+  const brickT = brickTexture(0x8c4632, 7), brickN = brickTexture(0x8a7a70, 11);
+  const mats = {
+    roofT: new THREE.MeshStandardMaterial({ map: tex, roughness: 0.85, side: THREE.DoubleSide }),
+    roofN: new THREE.MeshStandardMaterial({ map: tex, roughness: 0.9, side: THREE.DoubleSide, color: 0xc9c9c9 }),
+    wallT: new THREE.MeshStandardMaterial({ map: brickT, roughness: 0.92, side: THREE.DoubleSide }),
+    wallN: new THREE.MeshStandardMaterial({ map: brickN, roughness: 0.95, side: THREE.DoubleSide, color: 0xd9d4ce }),
+  };
+  let tBox = null;
+  for (const k of Object.keys(parts)) {
+    if (!parts[k].length) continue;
+    const g = BGU.mergeGeometries(parts[k]); const m = new THREE.Mesh(g, mats[k]);
+    m.castShadow = true; m.receiveShadow = true; scene.add(m);
+    if (k.endsWith('T')) { g.computeBoundingBox(); tBox = tBox ? tBox.union(g.boundingBox) : g.boundingBox.clone(); }
+    if (k === 'wallT' || k === 'roofT') {
+      const e = new THREE.LineSegments(new THREE.EdgesGeometry(g, 25), new THREE.LineBasicMaterial({ color: 0xf07d00, transparent: true, opacity: 0.0 }));
+      e.name = 'outline'; scene.add(e);
+    }
+  }
+  houseCenter = tBox ? tBox.getCenter(new THREE.Vector3()) : new THREE.Vector3();
+  houseCenter.y = 3.2;
+  sun.position.copy(houseCenter).add(new THREE.Vector3(-40, 70, -55)); sun.target.position.copy(houseCenter);
+
+  // facts
+  const v = (vbo.features || []).map((x) => x.properties).find((p) => String(p.huisnummer) === '12' && p.openbare_ruimte === 'Oranjelaan') || {};
+  const a = houseInfo;
+  const roofs = []; // dakhellingen uit semantiek
+  const facts = [
+    ['Bouwjaar', v.bouwjaar || a.oorspronkelijkbouwjaar], ['Woonopp.', v.oppervlakte ? v.oppervlakte + ' m²' : '–'],
+    ['Nokhoogte', a.b3_h_nok ? NL(a.b3_h_nok - (a.b3_h_maaiveld || 0), 2) + ' m' : '–'], ['Goothoogte', a.b3_h_dak_min ? '± ' + NL(a.b3_h_dak_min - (a.b3_h_maaiveld || 0), 1) + ' m' : '–'],
+    ['Grondvlak', a.b3_opp_grond ? NL(a.b3_opp_grond, 0) + ' m²' : '–'], ['Inhoud', a.b3_volume_lod22 ? NL(a.b3_volume_lod22, 0) + ' m³' : '–'],
+  ];
+  $('facts').innerHTML = facts.map(([k, val]) => `<dt>${k}</dt><dd>${val}</dd>`).join('');
+  $('more').innerHTML = [
+    `Gebruik: ${v.gebruiksdoel || 'woonfunctie'} · status: ${v.pandstatus || a.status || '–'}`,
+    `Gevel ${a.b3_opp_buitenmuur ? NL(a.b3_opp_buitenmuur, 0) : '–'} m² buitenmuur, ${a.b3_opp_scheidingsmuur ? NL(a.b3_opp_scheidingsmuur, 0) : '–'} m² gedeeld met de buren`,
+    `Dak: ${a.b3_dak_type === 'slanted' ? 'hellend' : a.b3_dak_type}, ${a.b3_n_vlakken || '–'} dakvlakken, ${a.b3_n_nok || 0} nok · hoogtemeting AHN ${a.b3_pw_datum || ''}`,
+    `BAG-pand ${TARGET} · verblijfsobject ${v.identificatie || '–'}`,
+  ].join('<br>');
+  return true;
+}
+
+// ---------- views ----------
+const views = {
+  rond: () => ({ p: houseCenter.clone().add(dirFromAz(75, 34, 18)), t: houseCenter.clone() }),
+  voor: () => ({ p: houseCenter.clone().add(dirFromAz(30, 24, 2.2)), t: houseCenter.clone().setY(4) }),
+  achter: () => ({ p: houseCenter.clone().add(dirFromAz(210, 20, 6)), t: houseCenter.clone().setY(3.5) }),
+  boven: () => ({ p: houseCenter.clone().add(new THREE.Vector3(0, 45, 0.05)), t: houseCenter.clone().setY(0) }),
+  straat: () => ({ p: houseCenter.clone().add(dirFromAz(60, 30, 1.7 - 3.2)), t: houseCenter.clone().setY(4.5) }),
+};
+// azimuth in degrees from north, clockwise (RD) -> world offset
+function dirFromAz(az, dist, dy) { const r = az * Math.PI / 180; return new THREE.Vector3(Math.sin(r) * dist, dy, -Math.cos(r) * dist); }
+let tween = null;
+function go(name, instant) {
+  const v = views[name](); document.querySelectorAll('.chip').forEach((c) => c.setAttribute('aria-pressed', String(c.dataset.v === name)));
+  if (instant) { camera.position.copy(v.p); controls.target.copy(v.t); controls.update(); return; }
+  tween = { p0: camera.position.clone(), t0: controls.target.clone(), p1: v.p, t1: v.t, s: performance.now() };
+}
+$('views').addEventListener('click', (e) => { const b = e.target.closest('.chip'); if (b) go(b.dataset.v); });
+controls.addEventListener('start', () => { tween = null; });
+$('toggle').addEventListener('click', () => { const c = $('card'); c.classList.toggle('open'); $('toggle').textContent = c.classList.contains('open') ? 'Minder' : 'Meer gegevens'; });
+
+function frame(now) {
+  if (tween) {
+    const k = Math.min(1, (now - tween.s) / 1000), e = k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
+    camera.position.lerpVectors(tween.p0, tween.p1, e); controls.target.lerpVectors(tween.t0, tween.t1, e); if (k >= 1) tween = null;
+  }
+  const o = scene.getObjectsByProperty('name', 'outline'); const pulse = 0.6 + 0.3 * Math.sin(now / 500); o.forEach((x) => (x.material.opacity = pulse));
+  controls.update(); renderer.render(scene, camera); requestAnimationFrame(frame);
+}
+addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
+
+let started = false;
+async function start() {
+  $('spin').style.display = ''; $('retry').style.display = 'none'; $('msg').className = ''; $('msg').textContent = 'Oranjelaan 12 laden…';
+  try {
+    if (!started) { await load(); started = true; go('rond', true); requestAnimationFrame(frame); }
+    $('overlay').classList.add('hide'); window.__ready = true;
+  } catch (err) {
+    console.warn(err); $('spin').style.display = 'none'; $('retry').style.display = 'inline-block';
+    $('msg').className = 'err'; $('msg').textContent = 'Laden is mislukt: ' + err.message + '. Controleer je verbinding.';
+  }
+}
+$('retry').addEventListener('click', start);
+start();
+</script>
+</body>
+</html>
