@@ -1,0 +1,36 @@
+name: OSM-data ophalen
+on:
+  push:
+    branches: [main]
+    paths: [index.html, .github/workflows/data.yml]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  data:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Overpass-query uitvoeren
+        run: |
+          python3 - <<'PY'
+          import re
+          html = open('index.html', encoding='utf-8').read()
+          q = re.search(r'const QUERY = `(.*?)`;', html, re.S).group(1)
+          open('query.txt', 'w').write(q)
+          PY
+          for url in https://overpass-api.de/api/interpreter https://overpass.kumi.systems/api/interpreter; do
+            for i in 1 2 3; do
+              if curl -sSf -m 120 --data-urlencode data@query.txt "$url" -o new.json && python3 -c "import json;d=json.load(open('new.json'));assert len(d['elements'])>10;print(len(d['elements']),'elementen')"; then
+                mv new.json data.json; rm query.txt; exit 0
+              fi
+              sleep $((i*15))
+            done
+          done
+          echo "Overpass niet bereikbaar" >&2; exit 1
+      - name: Committen
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data.json
+          git diff --cached --quiet || (git commit -m "data.json uit OpenStreetMap (Overpass)" && git push)

@@ -1,0 +1,948 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#cfe3f3">
+<title>Oranjelaan 3D</title>
+<style>
+  :root {
+    --bg: #cfe3f3;
+    --panel: rgba(255,255,255,0.92);
+    --ink: #1d2733;
+    --muted: #5d6b7a;
+    --line: rgba(29,39,51,0.12);
+    --accent: #f07d00;
+    --chip: #eef2f6;
+    --chip-on: #1d2733;
+    --chip-on-ink: #ffffff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --panel: rgba(28,33,40,0.92);
+      --ink: #eef2f6;
+      --muted: #a3b0bd;
+      --line: rgba(255,255,255,0.14);
+      --chip: #2b333d;
+      --chip-on: #f07d00;
+      --chip-on-ink: #1d2733;
+    }
+  }
+  :root[data-theme="dark"] {
+    --panel: rgba(28,33,40,0.92);
+    --ink: #eef2f6;
+    --muted: #a3b0bd;
+    --line: rgba(255,255,255,0.14);
+    --chip: #2b333d;
+    --chip-on: #f07d00;
+    --chip-on-ink: #1d2733;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; height: 100%; width: 100%; overflow: hidden;
+    background: var(--bg); color: var(--ink);
+    font: 14px/1.35 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+    overscroll-behavior: none; -webkit-user-select: none; user-select: none;
+    position: fixed; inset: 0;
+  }
+  #app { position: fixed; inset: 0; overflow: hidden; }
+  #app canvas { display: block; touch-action: none; }
+  #labels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+  .lbl {
+    font-size: 11px; font-weight: 600; padding: 2px 6px; border-radius: 6px; white-space: nowrap;
+    background: rgba(255,255,255,0.85); color: #1d2733; box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  }
+  .lbl.street { background: #f07d00; color: #fff; font-size: 12px; }
+  .lbl .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; vertical-align: 0; }
+
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+    box-shadow: 0 4px 18px rgba(0,0,0,0.12); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
+
+  #top {
+    position: absolute; left: max(12px, env(safe-area-inset-left)); right: max(12px, env(safe-area-inset-right));
+    top: max(10px, env(safe-area-inset-top)); display: flex; gap: 8px; align-items: flex-start; pointer-events: none;
+  }
+  #title { padding: 9px 12px; pointer-events: auto; min-width: 0; flex: 1 1 auto; max-width: 340px; }
+  #title h1 { margin: 0; font-size: 18px; letter-spacing: -0.01em; display: flex; align-items: center; gap: 6px; }
+  #title h1::before { content: ""; width: 10px; height: 10px; border-radius: 3px; background: var(--accent); }
+  #title .sub { color: var(--muted); font-size: 12px; margin-top: 1px; }
+  #stats { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 6px; font-size: 12px; }
+  #stats b { font-variant-numeric: tabular-nums; }
+  #tools { display: flex; flex-direction: column; gap: 6px; pointer-events: auto; flex: 0 0 auto; }
+  .btn {
+    appearance: none; border: 1px solid var(--line); background: var(--panel); color: var(--ink);
+    font: inherit; font-size: 13px; font-weight: 600; padding: 8px 11px; border-radius: 12px; cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+    white-space: nowrap;
+  }
+  .btn[aria-pressed="true"] { background: var(--chip-on); color: var(--chip-on-ink); }
+
+  #bottom {
+    position: absolute; left: max(10px, env(safe-area-inset-left)); right: max(10px, env(safe-area-inset-right));
+    bottom: max(10px, env(safe-area-inset-bottom)); padding: 8px 10px 9px; pointer-events: auto;
+  }
+  #chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip {
+    appearance: none; border: 0; font: inherit; font-size: 13px; font-weight: 600; padding: 6px 10px;
+    border-radius: 999px; background: var(--chip); color: var(--ink); cursor: pointer; display: inline-flex; align-items: center; gap: 5px;
+  }
+  .chip i { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+  .chip[aria-pressed="true"] { background: var(--chip-on); color: var(--chip-on-ink); }
+  #depthrow { display: flex; align-items: center; gap: 10px; margin-top: 8px; font-size: 12px; color: var(--muted); }
+  #depthrow label { white-space: nowrap; }
+  #depthrow input { flex: 1 1 auto; min-width: 0; accent-color: var(--accent); }
+  #depthval { font-weight: 700; color: var(--ink); min-width: 30px; text-align: right; font-variant-numeric: tabular-nums; }
+  #credit { margin-top: 6px; font-size: 10.5px; color: var(--muted); }
+  #credit a { color: inherit; }
+
+  #info {
+    position: absolute; left: max(12px, env(safe-area-inset-left)); right: max(12px, env(safe-area-inset-right));
+    max-width: 360px; padding: 11px 13px; display: none; pointer-events: auto;
+  }
+  #info.show { display: block; }
+  #info h2 { margin: 0 26px 4px 0; font-size: 15px; }
+  #info dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; font-size: 13px; }
+  #info dt { color: var(--muted); }
+  #info dd { margin: 0; overflow-wrap: anywhere; }
+  #info .note { margin-top: 6px; font-size: 11.5px; color: var(--muted); }
+  #info .x { position: absolute; top: 6px; right: 6px; border: 0; background: transparent; color: var(--muted); font-size: 20px; line-height: 1; padding: 4px 8px; cursor: pointer; }
+
+  #overlay {
+    position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 14px;
+    background: var(--bg); z-index: 10; padding: 24px; text-align: center; color: #1d2733;
+  }
+  #overlay.hide { display: none; }
+  .spinner { width: 42px; height: 42px; border-radius: 50%; border: 4px solid rgba(29,39,51,0.15); border-top-color: #f07d00; animation: spin 0.9s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  #overlay .msg { max-width: 320px; font-size: 15px; }
+  #overlay .err { color: #a3261b; font-weight: 600; }
+  #retry { display: none; }
+</style>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+</head>
+<body>
+<div id="app"></div>
+
+<div id="top">
+  <div id="title" class="panel">
+    <h1>Oranjelaan</h1>
+    <div class="sub">Castricum · digital twin boven- en ondergrond</div>
+    <div id="stats"></div>
+  </div>
+  <div id="tools">
+    <button class="btn" id="xray" aria-pressed="true">Röntgen</button>
+    <button class="btn" id="under">Onder de grond</button>
+    <button class="btn" id="reset">Reset</button>
+  </div>
+</div>
+
+<div id="info" class="panel" role="dialog" aria-live="polite">
+  <button class="x" id="infoclose" aria-label="Sluiten">×</button>
+  <div id="infobody"></div>
+</div>
+
+<div id="bottom" class="panel">
+  <div id="chips"></div>
+  <div id="depthrow">
+    <label for="depth">Diepte uitvergroot</label>
+    <input id="depth" type="range" min="1" max="15" step="0.5" value="6">
+    <span id="depthval">×6</span>
+  </div>
+  <div id="credit">© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap-bijdragers</a>. Ondergrond is indicatief (standaardligging), geen KLIC-data.</div>
+</div>
+
+<div id="overlay">
+  <div class="spinner" id="spin"></div>
+  <div class="msg" id="loadmsg">Oranjelaan laden…</div>
+  <button class="btn" id="retry">Opnieuw proberen</button>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+import * as BGU from 'three/addons/utils/BufferGeometryUtils.js';
+
+// ---------------------------------------------------------------- constants
+const QUERY = `[out:json][timeout:60];
+way["highway"]["name"="Oranjelaan"](around:2500,52.5485,4.6690)->.s;
+(
+  way(around.s:230)["building"];
+  way(around.s:280)["highway"];
+  node(around.s:230)["natural"="tree"];
+  node(around.s:280)["highway"="street_lamp"];
+  node(around.s:280)["emergency"="fire_hydrant"];
+  node(around.s:280)["man_made"="manhole"];
+  way(around.s:280)["landuse"];
+  way(around.s:280)["leisure"];
+  way(around.s:280)["natural"];
+  way(around.s:280)["amenity"="parking"];
+  way(around.s:280)["power"];
+  way(around.s:280)["man_made"="pipeline"];
+  way(around.s:280)["railway"="rail"];
+);
+out geom;`;
+const OVERPASS = ['https://overpass-api.de/api/interpreter', 'https://overpass.kumi.systems/api/interpreter'];
+const STREET = 'Oranjelaan';
+const UTIL_TYPES = new Set(['residential', 'living_street', 'tertiary', 'secondary', 'primary', 'unclassified']);
+
+// Underground layers (indicative standard layout in NL).
+// side: +1 = zijde A (links van de rijrichting), -1 = zijde B, 0 = midden.
+const LAYERS = [
+  { key: 'telecom', name: 'Telecom / glasvezel', short: 'Telecom', depth: 0.6, color: 0x2fa84f, side: 1, extra: 0.9, r: 0.25, ligging: 'berm zijde A' },
+  { key: 'elektra', name: 'Elektra laagspanning', short: 'Elektra', depth: 0.7, color: 0xd93025, side: 1, extra: 1.6, r: 0.28, ligging: 'berm zijde A, verder van de rijbaan' },
+  { key: 'gas', name: 'Gas lage druk', short: 'Gas', depth: 0.9, color: 0xf2c200, side: -1, extra: 0.9, r: 0.5, ligging: 'berm zijde B' },
+  { key: 'water', name: 'Drinkwater', short: 'Water', depth: 1.1, color: 0x1e74d9, side: -1, extra: 1.7, r: 0.32, ligging: 'berm zijde B, verder van de rijbaan' },
+  { key: 'riool', name: 'Riool', short: 'Riool', depth: 2.0, color: 0x8e44ad, side: 0, extra: 0, r: 0.5, ligging: 'midden onder de rijbaan' },
+];
+const GROUNDWATER = 2.6, SOIL = 4.0;
+
+const ROAD_W = {
+  motorway: 10, trunk: 9, primary: 8, secondary: 7.5, tertiary: 6.5, unclassified: 5.5, residential: 5.5,
+  living_street: 4.5, service: 3.5, track: 3, pedestrian: 4, footway: 1.8, path: 1.4, cycleway: 2.2,
+  steps: 1.6, bridleway: 2, construction: 4, road: 5,
+};
+const ROAD_KIND = (hw) => ['footway', 'path', 'pedestrian', 'steps', 'bridleway'].includes(hw) ? 'foot'
+  : hw === 'cycleway' ? 'cycle' : 'road';
+
+const NL = (n, d = 0) => n.toLocaleString('nl-NL', { minimumFractionDigits: d, maximumFractionDigits: d });
+
+// ---------------------------------------------------------------- DOM
+const $ = (id) => document.getElementById(id);
+const overlay = $('overlay'), loadmsg = $('loadmsg'), retry = $('retry'), spin = $('spin');
+function setLoading(msg) { overlay.classList.remove('hide'); spin.style.display = ''; retry.style.display = 'none'; loadmsg.className = 'msg'; loadmsg.textContent = msg; }
+function setError(msg) { overlay.classList.remove('hide'); spin.style.display = 'none'; retry.style.display = 'inline-block'; loadmsg.className = 'msg err'; loadmsg.textContent = msg; }
+
+// ---------------------------------------------------------------- data loading
+async function fetchJSON(url, opts) {
+  const res = await fetch(url, opts);
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  return res.json();
+}
+async function loadData() {
+  try {
+    const d = await fetchJSON('./data.json', { cache: 'no-cache' });
+    if (d && Array.isArray(d.elements) && d.elements.length) return d;
+  } catch (e) { /* fall back to live Overpass */ }
+  let lastErr;
+  for (const url of OVERPASS) {
+    try {
+      setLoading('Live OpenStreetMap-data ophalen…');
+      return await fetchJSON(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'data=' + encodeURIComponent(QUERY),
+      });
+    } catch (e) { lastErr = e; }
+  }
+  throw lastErr || new Error('Geen data');
+}
+
+// ---------------------------------------------------------------- geometry helpers
+let LAT0 = 52.5485, LON0 = 4.669, KX = 111320 * Math.cos(LAT0 * Math.PI / 180), KY = 110540;
+const proj = (p) => ({ x: (p.lon - LON0) * KX, y: (p.lat - LAT0) * KY }); // y = north (m)
+
+function polyLen(pts) { let s = 0; for (let i = 1; i < pts.length; i++) s += Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y); return s; }
+function area(pts) { let a = 0; for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) a += (pts[j].x + pts[i].x) * (pts[j].y - pts[i].y); return a / 2; }
+function centroid(pts) { let x = 0, y = 0; for (const p of pts) { x += p.x; y += p.y; } return { x: x / pts.length, y: y / pts.length }; }
+function closestOnSeg(p, a, b) {
+  const dx = b.x - a.x, dy = b.y - a.y, l2 = dx * dx + dy * dy;
+  let t = l2 ? ((p.x - a.x) * dx + (p.y - a.y) * dy) / l2 : 0; t = Math.max(0, Math.min(1, t));
+  return { x: a.x + t * dx, y: a.y + t * dy };
+}
+function distToPolyline(p, pts) {
+  let best = Infinity;
+  for (let i = 1; i < pts.length; i++) { const c = closestOnSeg(p, pts[i - 1], pts[i]); best = Math.min(best, Math.hypot(c.x - p.x, c.y - p.y)); }
+  return best;
+}
+// Offset a polyline sideways (+ = left of travel direction) using mitred normals.
+function offsetLine(pts, off) {
+  if (!off) return pts.map((p) => ({ x: p.x, y: p.y }));
+  const out = [];
+  for (let i = 0; i < pts.length; i++) {
+    const a = pts[Math.max(0, i - 1)], b = pts[i], c = pts[Math.min(pts.length - 1, i + 1)];
+    let n1 = norm(a, b), n2 = norm(b, c);
+    if (i === 0) n1 = n2; if (i === pts.length - 1) n2 = n1;
+    let nx = n1.x + n2.x, ny = n1.y + n2.y; const l = Math.hypot(nx, ny) || 1; nx /= l; ny /= l;
+    const dot = nx * n1.x + ny * n1.y; const m = Math.min(2.5, 1 / Math.max(0.4, dot));
+    out.push({ x: b.x + nx * off * m, y: b.y + ny * off * m });
+  }
+  return out;
+}
+function norm(a, b) { const dx = b.x - a.x, dy = b.y - a.y, l = Math.hypot(dx, dy) || 1; return { x: -dy / l, y: dx / l }; }
+function dedupe(pts) { const o = []; for (const p of pts) { const q = o[o.length - 1]; if (!q || Math.hypot(q.x - p.x, q.y - p.y) > 0.05) o.push(p); } return o; }
+function ringOf(el) {
+  let pts = dedupe(el.geometry.map(proj));
+  if (pts.length > 2 && Math.hypot(pts[0].x - pts[pts.length - 1].x, pts[0].y - pts[pts.length - 1].y) < 0.05) pts.pop();
+  return pts;
+}
+
+// Flat ribbon along a polyline, in world coords (x, y=h, z=-north)
+function ribbon(pts, width, h) {
+  const L = offsetLine(pts, width / 2), R = offsetLine(pts, -width / 2);
+  const pos = [], idx = [];
+  for (let i = 0; i < pts.length; i++) { pos.push(L[i].x, h, -L[i].y, R[i].x, h, -R[i].y); }
+  for (let i = 0; i < pts.length - 1; i++) { const a = i * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setIndex(idx); g.computeVertexNormals();
+  // force normals up (winding can flip with direction)
+  const n = g.attributes.normal; for (let i = 0; i < n.count; i++) n.setXYZ(i, 0, 1, 0);
+  return g;
+}
+// Cylinder between two 3D points
+const UP = new THREE.Vector3(0, 1, 0);
+function segCyl(a, b, r, radial = 6) {
+  const d = new THREE.Vector3().subVectors(b, a); const len = d.length(); if (len < 0.02) return null;
+  const g = new THREE.CylinderGeometry(r, r, len, radial, 1, true);
+  const q = new THREE.Quaternion().setFromUnitVectors(UP, d.normalize());
+  g.applyQuaternion(q); g.translate((a.x + b.x) / 2, (a.y + b.y) / 2, (a.z + b.z) / 2);
+  return g;
+}
+function shapeGeom(ring, h) {
+  const s = new THREE.Shape(ring.map((p) => new THREE.Vector2(p.x, p.y)));
+  const g = new THREE.ShapeGeometry(s); g.rotateX(-Math.PI / 2); g.translate(0, h, 0); return g;
+}
+function colorize(g, color) {
+  const c = new THREE.Color(color), n = g.attributes.position.count, arr = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) { arr[i * 3] = c.r; arr[i * 3 + 1] = c.g; arr[i * 3 + 2] = c.b; }
+  g.setAttribute('color', new THREE.BufferAttribute(arr, 3)); return g;
+}
+function clean(g) { // normalize attributes for merging
+  if (g.index) g = g.toNonIndexed();
+  for (const k of Object.keys(g.attributes)) if (!['position', 'normal', 'color'].includes(k)) g.deleteAttribute(k);
+  if (!g.attributes.normal) g.computeVertexNormals();
+  return g;
+}
+// Merge geometries, keeping triangle ranges so picks map back to records.
+function mergeWithRanges(list) {
+  const geoms = [], ranges = []; let tri = 0;
+  for (const { g, rec } of list) {
+    const c = clean(g); const n = c.attributes.position.count / 3;
+    geoms.push(c); ranges.push({ start: tri, end: tri + n, rec }); tri += n;
+  }
+  if (!geoms.length) return null;
+  const merged = BGU.mergeGeometries(geoms, false);
+  geoms.forEach((g) => g.dispose());
+  merged.userData.ranges = ranges; return merged;
+}
+function recForFace(geom, face) {
+  const r = geom.userData.ranges; if (!r) return null; let lo = 0, hi = r.length - 1;
+  while (lo <= hi) { const m = (lo + hi) >> 1; if (face < r[m].start) hi = m - 1; else if (face >= r[m].end) lo = m + 1; else return r[m].rec; }
+  return null;
+}
+
+// ---------------------------------------------------------------- scene setup
+const app = $('app');
+const renderer = new THREE.WebGLRenderer({ antialias: true, logarithmicDepthBuffer: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+app.appendChild(renderer.domElement);
+const labelRenderer = new CSS2DRenderer();
+labelRenderer.setSize(window.innerWidth, window.innerHeight);
+labelRenderer.domElement.id = 'labels';
+app.appendChild(labelRenderer.domElement);
+
+const SKY = 0xcfe3f3;
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(SKY);
+scene.fog = new THREE.Fog(SKY, 450, 1100);
+const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.5, 5000);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true; controls.dampingFactor = 0.08;
+controls.maxPolarAngle = Math.PI; controls.minDistance = 8; controls.maxDistance = 1400;
+controls.screenSpacePanning = true;
+controls.touches = { ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN };
+
+scene.add(new THREE.HemisphereLight(0xeaf4ff, 0x8a7a5a, 1.1));
+const sun = new THREE.DirectionalLight(0xfff3e0, 2.2);
+sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048); sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.4;
+scene.add(sun, sun.target);
+
+// level groups
+const G = {
+  buildings: new THREE.Group(), surface: new THREE.Group(), soil: new THREE.Group(), guides: new THREE.Group(),
+};
+const layerGroups = {}; // key -> { group, vert, guide }
+Object.values(G).forEach((g) => scene.add(g));
+
+let state = { ex: 6, xray: true, level: 'alles', bounds: null, home: null };
+let pickables = [];
+const labels = [];
+const materials = { ground: null, groundAlpha: [] };
+
+// ---------------------------------------------------------------- build
+function pickStreetCluster(elements) {
+  const ways = elements.filter((e) => e.type === 'way' && e.tags && e.tags.highway && e.tags.name === STREET && e.geometry);
+  if (!ways.length) return [];
+  const pts = ways.map((w) => w.geometry.map((g) => ({ x: (g.lon - 4.669) * 67700, y: (g.lat - 52.5485) * 110540 })));
+  const parent = ways.map((_, i) => i); const find = (i) => parent[i] === i ? i : (parent[i] = find(parent[i]));
+  for (let i = 0; i < ways.length; i++) for (let j = i + 1; j < ways.length; j++) {
+    let near = false;
+    for (const a of pts[i]) { for (const b of pts[j]) if (Math.hypot(a.x - b.x, a.y - b.y) < 60) { near = true; break; } if (near) break; }
+    if (near) parent[find(i)] = find(j);
+  }
+  const groups = {}; ways.forEach((w, i) => (groups[find(i)] ||= []).push(w));
+  return Object.values(groups).sort((a, b) => b.length - a.length)[0];
+}
+
+function build(data) {
+  const elements = data.elements || [];
+  const cluster = pickStreetCluster(elements);
+  if (!cluster.length) throw new Error('Oranjelaan niet gevonden in de data.');
+  // projection origin = middle of the street cluster
+  let mnLa = 90, mxLa = -90, mnLo = 180, mxLo = -180;
+  for (const w of cluster) for (const g of w.geometry) { mnLa = Math.min(mnLa, g.lat); mxLa = Math.max(mxLa, g.lat); mnLo = Math.min(mnLo, g.lon); mxLo = Math.max(mxLo, g.lon); }
+  LAT0 = (mnLa + mxLa) / 2; LON0 = (mnLo + mxLo) / 2; KX = 111320 * Math.cos(LAT0 * Math.PI / 180);
+  const streetLines = cluster.map((w) => dedupe(w.geometry.map(proj)));
+  const near = (p, r) => streetLines.some((l) => distToPolyline(p, l) < r);
+  const elNear = (el, r) => {
+    if (el.type === 'node') return near(proj(el), r);
+    if (!el.geometry) return false;
+    const g = el.geometry; const step = Math.max(1, Math.floor(g.length / 12));
+    for (let i = 0; i < g.length; i += step) if (near(proj(g[i]), r)) return true;
+    return near(proj(g[g.length - 1]), r);
+  };
+  const els = elements.filter((e) => elNear(e, e.tags && (e.tags.building || e.tags.natural === 'tree') ? 240 : 300));
+
+  // bounds from what we keep
+  let bx0 = Infinity, bx1 = -Infinity, by0 = Infinity, by1 = -Infinity;
+  const grow = (p) => { bx0 = Math.min(bx0, p.x); bx1 = Math.max(bx1, p.x); by0 = Math.min(by0, p.y); by1 = Math.max(by1, p.y); };
+  for (const l of streetLines) l.forEach((p) => { grow({ x: p.x - 240, y: p.y - 240 }); grow({ x: p.x + 240, y: p.y + 240 }); });
+  state.bounds = { x0: bx0, x1: bx1, y0: by0, y1: by1, cx: (bx0 + bx1) / 2, cy: (by0 + by1) / 2, w: bx1 - bx0, h: by1 - by0 };
+  const B = state.bounds;
+
+  buildGround(B);
+  const roads = buildRoads(els, cluster);
+  buildAreas(els);
+  const counts = buildPoints(els);
+  const buildings = buildBuildings(els);
+  buildUnderground(els, roads, buildings, B);
+  buildSoil(B);
+
+  // sun + shadows sized to the area
+  const span = Math.max(B.w, B.h);
+  sun.position.set(B.cx - span * 0.35, span * 0.6, -(B.cy) - span * 0.45);
+  sun.target.position.set(B.cx, 0, -B.cy);
+  const sc = sun.shadow.camera; sc.left = -span * 0.7; sc.right = span * 0.7; sc.top = span * 0.7; sc.bottom = -span * 0.7; sc.near = 1; sc.far = span * 2.5; sc.updateProjectionMatrix();
+  scene.fog.near = span * 0.9; scene.fog.far = span * 2.6;
+
+  const streetM = streetLines.reduce((s, l) => s + polyLen(l), 0);
+  $('stats').innerHTML = [
+    ['Gebouwen', buildings.length], ['Meter straat', Math.round(streetM)], ['Bomen', counts.tree],
+    ['Lantaarnpalen', counts.lamp], ['Brandkranen', counts.hydrant],
+  ].map(([k, v]) => `<span>${k} <b>${NL(v)}</b></span>`).join('');
+
+  // home view
+  let sx0 = Infinity, sx1 = -Infinity, sy0 = Infinity, sy1 = -Infinity;
+  for (const l of streetLines) for (const p of l) { sx0 = Math.min(sx0, p.x); sx1 = Math.max(sx1, p.x); sy0 = Math.min(sy0, p.y); sy1 = Math.max(sy1, p.y); }
+  const mid = { x: (sx0 + sx1) / 2, y: (sy0 + sy1) / 2 };
+  const r = Math.max(160, Math.min(650, Math.hypot(sx1 - sx0, sy1 - sy0) * 0.9 + 60));
+  state.home = { target: new THREE.Vector3(mid.x, 0, -mid.y), pos: new THREE.Vector3(mid.x - r * 0.55, r * 0.62, -mid.y + r * 0.75) };
+  camera.position.copy(state.home.pos); controls.target.copy(state.home.target); controls.update();
+}
+
+function buildGround(B) {
+  const pad = 140;
+  const g = new THREE.PlaneGeometry(B.w + pad * 2, B.h + pad * 2); g.rotateX(-Math.PI / 2); g.translate(B.cx, 0, -B.cy);
+  const m = new THREE.MeshStandardMaterial({ color: 0xb9c79a, roughness: 1, transparent: true, opacity: 1 });
+  materials.ground = m;
+  const mesh = new THREE.Mesh(g, m); mesh.receiveShadow = true; mesh.renderOrder = 1; mesh.name = 'ground';
+  G.surface.add(mesh);
+}
+
+function buildRoads(els, cluster) {
+  const clusterIds = new Set(cluster.map((w) => w.id));
+  const byKind = { road: [], foot: [], cycle: [], rail: [] };
+  const utility = [];
+  const order = { road: 0.06, cycle: 0.07, foot: 0.08, rail: 0.05 };
+  for (const e of els) {
+    if (e.type !== 'way' || !e.geometry || !e.tags) continue;
+    const t = e.tags; let kind, w;
+    if (t.railway === 'rail') { kind = 'rail'; w = 2.6; }
+    else if (t.highway && !['platform', 'corridor', 'elevator', 'proposed', 'raceway', 'bus_stop'].includes(t.highway) && !(t.area === 'yes')) {
+      kind = ROAD_KIND(t.highway); w = parseFloat(t.width) || ROAD_W[t.highway] || 3.5;
+      if (t.tunnel && t.tunnel !== 'no') continue;
+    } else continue;
+    const pts = dedupe(e.geometry.map(proj)); if (pts.length < 2) continue;
+    const h = order[kind] + (clusterIds.has(e.id) ? 0.01 : 0);
+    byKind[kind].push({ g: ribbon(pts, w, h), rec: { kind: 'road', tags: t, len: polyLen(pts) } });
+    if (t.highway && UTIL_TYPES.has(t.highway)) utility.push({ pts, width: w, name: t.name || 'Naamloze straat', main: clusterIds.has(e.id) });
+  }
+  const mats = {
+    road: new THREE.MeshStandardMaterial({ color: 0x5b6068, roughness: 0.95 }),
+    foot: new THREE.MeshStandardMaterial({ color: 0xc9c2b4, roughness: 1 }),
+    cycle: new THREE.MeshStandardMaterial({ color: 0xa8584a, roughness: 1 }),
+    rail: new THREE.MeshStandardMaterial({ color: 0x6b5a4a, roughness: 1 }),
+  };
+  for (const k of Object.keys(byKind)) {
+    const geom = mergeWithRanges(byKind[k]); if (!geom) continue;
+    const m = mats[k]; m.transparent = true; m.polygonOffset = true; m.polygonOffsetFactor = -2; m.polygonOffsetUnits = -2;
+    materials.groundAlpha.push(m);
+    const mesh = new THREE.Mesh(geom, m); mesh.receiveShadow = true; mesh.renderOrder = 2; G.surface.add(mesh);
+  }
+  // Oranjelaan centre line + label
+  const lineG = [];
+  let longest = null;
+  for (const w of cluster) {
+    const pts = dedupe(w.geometry.map(proj)); if (pts.length < 2) continue;
+    lineG.push({ g: ribbon(pts, 0.35, 0.1), rec: null });
+    if (!longest || polyLen(pts) > polyLen(longest)) longest = pts;
+  }
+  const lg = mergeWithRanges(lineG);
+  if (lg) { const m = new THREE.MeshBasicMaterial({ color: 0xf07d00, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 }); const mesh = new THREE.Mesh(lg, m); mesh.renderOrder = 3; G.surface.add(mesh); }
+  if (longest) {
+    const p = longest[Math.floor(longest.length / 2)];
+    const div = document.createElement('div'); div.className = 'lbl street'; div.textContent = STREET;
+    const o = new CSS2DObject(div); o.position.set(p.x, 3, -p.y); G.surface.add(o); labels.push(o);
+  }
+  return utility;
+}
+
+function areaStyle(t) {
+  if (t.natural === 'water' || t.landuse === 'basin' || t.landuse === 'reservoir' || t.water) return [0x7fb6e0, 0.03];
+  if (t.amenity === 'parking') return [0x9aa0a6, 0.035];
+  if (t.natural === 'wood' || t.landuse === 'forest') return [0x6f9a5a, 0.02];
+  if (t.natural === 'scrub' || t.natural === 'heath') return [0x93a96b, 0.02];
+  if (t.natural === 'sand' || t.natural === 'beach') return [0xe3d3a3, 0.02];
+  if (t.leisure === 'pitch') return [0x86b86a, 0.025];
+  if (t.leisure === 'playground') return [0xc9b98a, 0.025];
+  if (t.leisure || ['grass', 'meadow', 'village_green', 'recreation_ground', 'cemetery', 'allotments', 'orchard', 'farmland', 'flowerbed'].includes(t.landuse) || t.natural === 'grassland')
+    return [0x9fc77f, 0.015];
+  if (['commercial', 'retail', 'industrial', 'railway'].includes(t.landuse)) return [0xc8c0bb, 0.01];
+  return null;
+}
+function buildAreas(els) {
+  const parts = [];
+  for (const e of els) {
+    if (e.type !== 'way' || !e.geometry || !e.tags || e.tags.building || e.tags.highway) continue;
+    if (e.tags.natural === 'tree_row' || e.tags.natural === 'coastline') continue;
+    const st = areaStyle(e.tags); if (!st) continue;
+    const ring = ringOf(e); if (ring.length < 3 || Math.abs(area(ring)) < 4) continue;
+    const g = e.geometry; if (Math.hypot(g[0].lat - g[g.length - 1].lat, g[0].lon - g[g.length - 1].lon) > 1e-7) continue; // not closed
+    try { parts.push({ g: colorize(shapeGeom(ring, st[1]), st[0]), rec: null }); } catch (err) { /* bad polygon */ }
+  }
+  const geom = mergeWithRanges(parts); if (!geom) return;
+  const m = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, transparent: true, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 });
+  materials.groundAlpha.push(m);
+  const mesh = new THREE.Mesh(geom, m); mesh.receiveShadow = true; mesh.renderOrder = 2; G.surface.add(mesh);
+}
+
+function instanced(geom, mat, positions, scaleFn, castShadow = true) {
+  if (!positions.length) return null;
+  const im = new THREE.InstancedMesh(geom, mat, positions.length);
+  const m = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(), v = new THREE.Vector3();
+  positions.forEach((p, i) => { const k = scaleFn ? scaleFn(i) : 1; s.set(k, k, k); v.set(p.x, 0, -p.y); m.compose(v, q, s); im.setMatrixAt(i, m); });
+  im.castShadow = castShadow; im.receiveShadow = true; G.surface.add(im); return im;
+}
+function buildPoints(els) {
+  const P = { tree: [], lamp: [], hydrant: [], manhole: [] };
+  for (const e of els) {
+    if (e.type !== 'node' || !e.tags) continue; const p = proj(e);
+    if (e.tags.natural === 'tree') P.tree.push(p);
+    else if (e.tags.highway === 'street_lamp') P.lamp.push(p);
+    else if (e.tags.emergency === 'fire_hydrant') P.hydrant.push(p);
+    else if (e.tags.man_made === 'manhole') P.manhole.push(p);
+  }
+  const rnd = (i) => 0.75 + ((Math.sin(i * 12.9898) * 43758.5453) % 1 + 1) % 1 * 0.6;
+  const trunk = new THREE.CylinderGeometry(0.18, 0.25, 3, 6); trunk.translate(0, 1.5, 0);
+  const crown = new THREE.IcosahedronGeometry(2.6, 1); crown.scale(1, 1.15, 1); crown.translate(0, 5.2, 0);
+  instanced(trunk, new THREE.MeshStandardMaterial({ color: 0x6b4f35, roughness: 1 }), P.tree, rnd);
+  instanced(crown, new THREE.MeshStandardMaterial({ color: 0x4f8a3c, roughness: 0.9, flatShading: true }), P.tree, rnd);
+  const pole = new THREE.CylinderGeometry(0.07, 0.1, 6, 6); pole.translate(0, 3, 0);
+  const head = new THREE.BoxGeometry(0.35, 0.18, 0.8); head.translate(0, 6, 0.3);
+  instanced(pole, new THREE.MeshStandardMaterial({ color: 0x3d434a, metalness: 0.4, roughness: 0.6 }), P.lamp);
+  instanced(head, new THREE.MeshStandardMaterial({ color: 0xfff1b8, emissive: 0x6b5a20 }), P.lamp);
+  const hyd = new THREE.CylinderGeometry(0.18, 0.22, 0.8, 8); hyd.translate(0, 0.4, 0);
+  instanced(hyd, new THREE.MeshStandardMaterial({ color: 0xd62d20, roughness: 0.6 }), P.hydrant);
+  const lid = new THREE.CylinderGeometry(0.35, 0.35, 0.05, 14); lid.translate(0, 0.12, 0);
+  instanced(lid, new THREE.MeshStandardMaterial({ color: 0x2b2f33, metalness: 0.5, roughness: 0.5 }), P.manhole, null, false);
+  return { tree: P.tree.length, lamp: P.lamp.length, hydrant: P.hydrant.length };
+}
+
+// ---------------------------------------------------------------- buildings
+const HOUSE = new Set(['house', 'residential', 'detached', 'semidetached_house', 'terrace', 'bungalow', 'farm', 'yes', 'villa']);
+const SHED = new Set(['shed', 'garage', 'garages', 'carport', 'hut', 'cabin', 'greenhouse', 'roof', 'kiosk', 'outbuilding']);
+const BIG = new Set(['apartments', 'commercial', 'retail', 'office', 'school', 'church', 'public', 'industrial', 'warehouse', 'hotel', 'supermarket', 'civic', 'hospital', 'train_station', 'college', 'kindergarten', 'sports_hall', 'government']);
+const WALLS = [0x9c4a36, 0xa65a3f, 0x8b3f2e, 0xb06a4c, 0x7e3b2c, 0xa8604a, 0xb8876a, 0x93503b, 0xc2a283, 0x8f5a44];
+const ROOFS = [0x3a3532, 0x2f2c2a, 0x4a3a33, 0x453f3b, 0x3b3f44, 0x5a3b2e];
+function hashId(id) { let h = id | 0; h = ((h >>> 16) ^ h) * 0x45d9f3b; h = ((h >>> 16) ^ h) * 0x45d9f3b; return ((h >>> 16) ^ h) >>> 0; }
+
+function minRect(ring) {
+  let best = null;
+  for (let i = 0; i < ring.length; i++) {
+    const a = ring[i], b = ring[(i + 1) % ring.length]; const l = Math.hypot(b.x - a.x, b.y - a.y); if (l < 0.3) continue;
+    const ux = (b.x - a.x) / l, uy = (b.y - a.y) / l;
+    let u0 = Infinity, u1 = -Infinity, v0 = Infinity, v1 = -Infinity;
+    for (const p of ring) { const u = p.x * ux + p.y * uy, v = -p.x * uy + p.y * ux; u0 = Math.min(u0, u); u1 = Math.max(u1, u); v0 = Math.min(v0, v); v1 = Math.max(v1, v); }
+    const ar = (u1 - u0) * (v1 - v0);
+    if (!best || ar < best.area) best = { area: ar, ux, uy, u0, u1, v0, v1 };
+  }
+  return best;
+}
+function gableRoof(rect, wallH, roofH) {
+  // make u the long axis
+  let { ux, uy, u0, u1, v0, v1 } = rect;
+  if (v1 - v0 > u1 - u0) { const t = [u0, u1]; [u0, u1] = [v0, v1]; [v0, v1] = [-t[1], -t[0]]; const ox = ux; ux = -uy; uy = ox; }
+  // local (u,v) -> world xz
+  const W = (u, v, y) => new THREE.Vector3(u * ux - v * uy, y, -(u * uy + v * ux));
+  const vm = (v0 + v1) / 2, ov = 0.25; // overhang
+  const a = W(u0 - ov, v0 - ov, wallH), b = W(u1 + ov, v0 - ov, wallH), c = W(u1 + ov, v1 + ov, wallH), d = W(u0 - ov, v1 + ov, wallH);
+  const r0 = W(u0 - ov, vm, wallH + roofH), r1 = W(u1 + ov, vm, wallH + roofH);
+  const g0 = W(u0, v0, wallH), g1 = W(u1, v0, wallH), g2 = W(u1, v1, wallH), g3 = W(u0, v1, wallH), q0 = W(u0, vm, wallH + roofH * (1 - ov / ((v1 - v0) / 2 + ov))), q1 = W(u1, vm, wallH + roofH * (1 - ov / ((v1 - v0) / 2 + ov)));
+  const roof = [], gable = [];
+  const tri = (arr, p, q, r) => arr.push(p.x, p.y, p.z, q.x, q.y, q.z, r.x, r.y, r.z);
+  const both = (arr, p, q, r) => { tri(arr, p, q, r); tri(arr, p, r, q); };
+  both(roof, a, b, r1); both(roof, a, r1, r0); both(roof, d, c, r1); both(roof, d, r1, r0);
+  both(gable, g0, g3, q0); both(gable, g1, g2, q1);
+  const mk = (arr) => { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(arr, 3)); g.computeVertexNormals(); return g; };
+  return { roof: mk(roof), gable: mk(gable) };
+}
+function buildBuildings(els) {
+  const walls = [], roofs = [], list = [];
+  for (const e of els) {
+    if (e.type !== 'way' || !e.tags || !e.tags.building || !e.geometry) continue;
+    const t = e.tags; if (['no', 'construction', 'demolished'].includes(t.building)) continue;
+    let ring = ringOf(e); if (ring.length < 3) continue;
+    let A = area(ring); if (Math.abs(A) < 3) continue;
+    if (A < 0) ring = ring.reverse(); A = Math.abs(A);
+    const type = t.building; const h0 = id => hashId(e.id + id);
+    let height = parseFloat(t.height), source = 'OSM (height)';
+    if (!(height > 0) && t['building:levels']) { height = parseFloat(t['building:levels']) * 2.9 + (parseFloat(t['roof:levels']) || 0) * 2.9; source = 'OSM (bouwlagen × 2,9 m)'; }
+    let wallH, roofH = 0, gable = false, rect = null;
+    const isHouse = HOUSE.has(type) && A >= 35 && A <= 350;
+    if (height > 0) { wallH = height; }
+    else {
+      source = 'geschat';
+      if (SHED.has(type) || A < 30) wallH = 2.7;
+      else if (BIG.has(type) || A > 350) wallH = 7.5 + (h0(1) % 16) / 10;
+      else wallH = 5.6;
+    }
+    if (isHouse && !(t['roof:shape'] && t['roof:shape'] !== 'gabled')) {
+      rect = minRect(ring);
+      if (rect && A / rect.area > 0.85) {
+        gable = true; const short = Math.min(rect.u1 - rect.u0, rect.v1 - rect.v0);
+        roofH = Math.min(4.5, short / 2 * Math.tan(40 * Math.PI / 180));
+        if (height > 0 && height - roofH > 2.5) wallH = height - roofH; // OSM height is top of roof
+        if (!(height > 0)) height = wallH + roofH;
+      }
+    }
+    if (!(height > 0)) height = wallH;
+    const rec = {
+      kind: 'building', tags: t, area: A, height, source,
+      wallC: WALLS[h0(2) % WALLS.length], roofC: ROOFS[h0(3) % ROOFS.length],
+      ring, house: isHouse || HOUSE.has(type) && A >= 25 && A <= 400, id: e.id,
+    };
+    const shape = new THREE.Shape(ring.map((p) => new THREE.Vector2(p.x, p.y)));
+    let wg;
+    try { wg = new THREE.ExtrudeGeometry(shape, { depth: wallH, bevelEnabled: false }); } catch (err) { continue; }
+    wg.rotateX(-Math.PI / 2);
+    if (gable) {
+      // colour walls; top cap of the extrusion hidden under the roof anyway
+      walls.push({ g: colorize(wg, rec.wallC), rec });
+      const r = gableRoof(rect, wallH, roofH);
+      roofs.push({ g: colorize(r.roof, rec.roofC), rec });
+      walls.push({ g: colorize(r.gable, rec.wallC), rec });
+    } else {
+      // flat roof: colour top cap darker
+      const g = clean(wg); const pos = g.attributes.position, n = g.attributes.normal;
+      const cw = new THREE.Color(rec.wallC), cr = new THREE.Color(SHED.has(type) ? rec.roofC : 0x55524f);
+      const col = new Float32Array(pos.count * 3);
+      for (let i = 0; i < pos.count; i++) { const c = n.getY(i) > 0.9 ? cr : cw; col.set([c.r, c.g, c.b], i * 3); }
+      g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+      walls.push({ g, rec });
+    }
+    list.push(rec);
+  }
+  const wm = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9, side: THREE.DoubleSide });
+  const rm = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.75, side: THREE.DoubleSide, flatShading: true });
+  for (const [arr, m] of [[walls, wm], [roofs, rm]]) {
+    const geom = mergeWithRanges(arr); if (!geom) continue;
+    const mesh = new THREE.Mesh(geom, m); mesh.castShadow = true; mesh.receiveShadow = true; G.buildings.add(mesh); pickables.push(mesh);
+  }
+  return list;
+}
+
+// ---------------------------------------------------------------- underground
+function addLabel(group, text, color, x, z) {
+  const div = document.createElement('div'); div.className = 'lbl';
+  div.innerHTML = `<span class="dot" style="background:#${color.toString(16).padStart(6, '0')}"></span>${text}`;
+  const o = new CSS2DObject(div); o.position.set(x, 0, z); group.add(o); labels.push(o); return o;
+}
+const fmtDepth = (d) => '± ' + NL(d, 1) + ' m';
+
+function buildUnderground(els, utility, buildings, B) {
+  const labelX = B.x0 - 6, labelZ = -B.cy;
+  // street guide lines (reused per depth)
+  const gl = [];
+  for (const s of utility) for (let i = 1; i < s.pts.length; i++) gl.push(s.pts[i - 1].x, 0, -s.pts[i - 1].y, s.pts[i].x, 0, -s.pts[i].y);
+  const guideGeom = new THREE.BufferGeometry(); guideGeom.setAttribute('position', new THREE.Float32BufferAttribute(gl, 3));
+
+  for (const L of LAYERS) {
+    const group = new THREE.Group(), vert = new THREE.Group(); group.add(vert); group.name = L.key;
+    const mains = [], conns = [], verts = [];
+    const segs = []; // 2D main segments for nearest search
+    for (const s of utility) {
+      const off = L.side * (s.width / 2 + L.extra);
+      const line = offsetLine(s.pts, off);
+      const rec = { kind: 'pipe', layer: L, name: L.name, street: s.name, role: 'Hoofdleiding' };
+      for (let i = 1; i < line.length; i++) {
+        const g = segCyl(new THREE.Vector3(line[i - 1].x, 0, -line[i - 1].y), new THREE.Vector3(line[i].x, 0, -line[i].y), L.r, 8);
+        if (g) mains.push({ g, rec });
+        segs.push([line[i - 1], line[i], s.name]);
+      }
+      if (L.key === 'riool') { // manholes every ~40 m
+        let acc = 20;
+        for (let i = 1; i < line.length; i++) {
+          const a = line[i - 1], b = line[i], l = Math.hypot(b.x - a.x, b.y - a.y);
+          while (acc <= l) {
+            const t = acc / l, x = a.x + (b.x - a.x) * t, y = a.y + (b.y - a.y) * t;
+            const sg = new THREE.CylinderGeometry(0.5, 0.5, L.depth, 10, 1, true); sg.translate(x, L.depth / 2, -y);
+            verts.push({ g: sg, rec: { kind: 'pipe', layer: L, name: 'Rioolput', street: s.name, role: 'Inspectieput (schacht naar maaiveld)' } });
+            acc += 40;
+          }
+          acc -= l;
+        }
+      }
+    }
+    // house connections
+    const crec = { kind: 'pipe', layer: L, name: L.name, role: 'Huisaansluiting' };
+    for (const b of buildings) {
+      if (!b.house) continue;
+      const c = centroid(b.ring); let best = null, bd = 70;
+      for (const [a, z, name] of segs) { const p = closestOnSeg(c, a, z); const d = Math.hypot(p.x - c.x, p.y - c.y); if (d < bd) { bd = d; best = { p, name }; } }
+      if (!best) continue;
+      let F = null, fd = Infinity;
+      for (let i = 0; i < b.ring.length; i++) { const p = closestOnSeg(best.p, b.ring[i], b.ring[(i + 1) % b.ring.length]); const d = Math.hypot(p.x - best.p.x, p.y - best.p.y); if (d < fd) { fd = d; F = p; } }
+      if (!F || fd < 0.5) continue;
+      const rec = { ...crec, street: best.name, address: addr(b.tags) };
+      const g = segCyl(new THREE.Vector3(best.p.x, 0, -best.p.y), new THREE.Vector3(F.x, 0, -F.y), L.key === 'riool' ? 0.18 : 0.12, 6);
+      if (g) conns.push({ g, rec });
+      const rh = Math.min(0.45, L.depth * 0.6);
+      const rg = new THREE.CylinderGeometry(0.12, 0.12, rh, 6, 1, true); rg.translate(F.x, rh / 2, -F.y);
+      verts.push({ g: rg, rec });
+    }
+    // real OSM cables / pipelines for this layer
+    for (const e of els) {
+      if (e.type !== 'way' || !e.geometry || !e.tags) continue; const t = e.tags;
+      const isCable = t.power === 'cable' || (t.power && t.location === 'underground');
+      const isPipe = t.man_made === 'pipeline';
+      if (!isCable && !isPipe) continue;
+      const sub = (t.substance || t.type || '').toLowerCase();
+      const lk = isCable ? (t.telecom || t.communication ? 'telecom' : 'elektra') : (/water/.test(sub) ? 'water' : /sewage|riool/.test(sub) ? 'riool' : 'gas');
+      if (lk !== L.key) continue;
+      const pts = dedupe(e.geometry.map(proj));
+      const rec = { kind: 'pipe', layer: L, name: t.name || (isCable ? 'Kabel' : 'Pijpleiding') + ' (uit OpenStreetMap)', role: 'Uit OpenStreetMap', osm: true, tags: t };
+      for (let i = 1; i < pts.length; i++) { const g = segCyl(new THREE.Vector3(pts[i - 1].x, 0, -pts[i - 1].y), new THREE.Vector3(pts[i].x, 0, -pts[i].y), L.r * 1.4, 8); if (g) mains.push({ g, rec }); }
+    }
+    const mat = new THREE.MeshStandardMaterial({ color: L.color, roughness: 0.5, metalness: 0.1, emissive: L.color, emissiveIntensity: 0.18 });
+    const cmat = new THREE.MeshStandardMaterial({ color: new THREE.Color(L.color).lerp(new THREE.Color(0xffffff), 0.25), roughness: 0.6, emissive: L.color, emissiveIntensity: 0.12 });
+    for (const [arr, m, parent] of [[mains, mat, group], [conns, cmat, group], [verts, cmat, vert]]) {
+      const geom = mergeWithRanges(arr); if (!geom) continue;
+      const mesh = new THREE.Mesh(geom, m); parent.add(mesh); pickables.push(mesh);
+    }
+    const guide = new THREE.LineSegments(guideGeom, new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.55 }));
+    guide.visible = false; group.add(guide);
+    addLabel(group, `${L.short} · ${fmtDepth(L.depth)}`, L.color, labelX, labelZ);
+    scene.add(group);
+    layerGroups[L.key] = { group, vert, guide, L };
+  }
+}
+
+function buildSoil(B) {
+  const pad = 20, w = B.w + pad * 2, h = B.h + pad * 2;
+  const box = new THREE.BoxGeometry(w, 1, h); box.translate(B.cx, -0.5, -B.cy);
+  const soilMat = new THREE.MeshStandardMaterial({ color: 0xd8bf8a, transparent: true, opacity: 0.13, depthWrite: false, side: THREE.DoubleSide });
+  const soil = new THREE.Mesh(box, soilMat); soil.name = 'soil'; soil.renderOrder = 0;
+  const edges = new THREE.LineSegments(new THREE.EdgesGeometry(box), new THREE.LineBasicMaterial({ color: 0xa88a52, transparent: true, opacity: 0.6 }));
+  const soilBox = new THREE.Group(); soilBox.add(soil, edges);
+  const gw = new THREE.PlaneGeometry(w, h); gw.rotateX(-Math.PI / 2); gw.translate(B.cx, 0, -B.cy);
+  const gwMesh = new THREE.Mesh(gw, new THREE.MeshStandardMaterial({ color: 0x4f9fe0, transparent: true, opacity: 0.28, depthWrite: false, side: THREE.DoubleSide }));
+  const gwGroup = new THREE.Group(); gwGroup.add(gwMesh);
+  const lx = B.x0 - 6, lz = -B.cy;
+  addLabel(gwGroup, `Grondwater · ${fmtDepth(GROUNDWATER)}`, 0x4f9fe0, lx, lz);
+  const bottomLbl = new THREE.Group(); addLabel(bottomLbl, `Bodem (zand) · tot ${fmtDepth(SOIL)}`, 0xc9a86a, lx, lz);
+  const surfLbl = new THREE.Group(); addLabel(surfLbl, 'Maaiveld · 0 m', 0x8fb36a, lx, lz);
+  G.soil.add(soilBox, gwGroup, bottomLbl); G.surface.add(surfLbl);
+  G.soil.userData = { soilBox, gwGroup, bottomLbl };
+  const guide = new THREE.LineSegments(layerGroups.riool.guide.geometry, new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.5 }));
+  guide.visible = false; gwGroup.add(guide); G.soil.userData.guide = guide;
+}
+
+function applyDepth() {
+  const ex = state.ex;
+  for (const k of Object.keys(layerGroups)) { const { group, vert, L } = layerGroups[k]; group.position.y = -L.depth * ex; vert.scale.y = ex; }
+  const s = G.soil.userData;
+  if (s.soilBox) { s.soilBox.scale.y = SOIL * ex; s.gwGroup.position.y = -GROUNDWATER * ex; s.bottomLbl.position.y = -SOIL * ex; }
+  $('depthval').textContent = '×' + NL(ex, ex % 1 ? 1 : 0);
+}
+
+// ---------------------------------------------------------------- levels / UI
+const LEVELS = [
+  { key: 'alles', label: 'Alles' },
+  { key: 'gebouwen', label: 'Gebouwen', color: '#a65a3f', depth: 0 },
+  { key: 'maaiveld', label: 'Maaiveld', color: '#8fb36a', depth: 0 },
+  ...LAYERS.map((L) => ({ key: L.key, label: L.short, color: '#' + L.color.toString(16).padStart(6, '0'), depth: L.depth })),
+  { key: 'bodem', label: 'Bodem & grondwater', color: '#c9a86a', depth: GROUNDWATER },
+];
+function renderChips() {
+  $('chips').innerHTML = LEVELS.map((l) => `<button class="chip" data-k="${l.key}" aria-pressed="${l.key === state.level}">${l.color ? `<i style="background:${l.color}"></i>` : ''}${l.label}</button>`).join('');
+}
+$('chips').addEventListener('click', (ev) => { const b = ev.target.closest('.chip'); if (b) setLevel(b.dataset.k, true); });
+
+function applyVisibility() {
+  const lv = state.level, all = lv === 'alles';
+  G.buildings.visible = all || lv === 'gebouwen';
+  G.surface.visible = all || lv === 'maaiveld' || lv === 'gebouwen';
+  for (const k of Object.keys(layerGroups)) {
+    const { group, guide } = layerGroups[k];
+    group.visible = all || lv === k; guide.visible = lv === k;
+  }
+  G.soil.visible = all || lv === 'bodem' || LAYERS.some((L) => L.key === lv);
+  if (G.soil.userData.guide) G.soil.userData.guide.visible = lv === 'bodem';
+  if (G.soil.userData.bottomLbl) G.soil.userData.bottomLbl.visible = all || lv === 'bodem';
+  if (G.soil.userData.gwGroup) G.soil.userData.gwGroup.children[0].visible = all || lv === 'bodem';
+  applyXray();
+}
+function applyXray() {
+  const solo = state.level === 'gebouwen' || state.level === 'maaiveld';
+  const op = state.xray && !solo ? 0.32 : 1;
+  const set = (m, o) => { m.opacity = o; m.depthWrite = o >= 1; m.needsUpdate = true; };
+  if (materials.ground) set(materials.ground, state.level === 'gebouwen' ? 1 : op);
+  materials.groundAlpha.forEach((m) => set(m, Math.min(1, op + 0.25)));
+  $('xray').setAttribute('aria-pressed', String(state.xray));
+}
+function setLevel(k, move) {
+  state.level = k; renderChips(); applyVisibility(); hideInfo();
+  if (!move) return;
+  const lv = LEVELS.find((l) => l.key === k);
+  const off = new THREE.Vector3().subVectors(camera.position, controls.target);
+  if (k === 'alles') return tweenTo(state.home.pos, state.home.target);
+  const y = -(lv.depth || 0) * state.ex + (k === 'gebouwen' ? 4 : 0);
+  const t = new THREE.Vector3(controls.target.x, y, controls.target.z);
+  // keep the viewing angle, but look slightly from above at that level
+  const dist = Math.min(Math.max(off.length(), 70), 200);
+  off.setLength(dist); if (off.y < dist * 0.35) off.y = dist * 0.45; off.setLength(dist);
+  tweenTo(t.clone().add(off), t);
+}
+let tween = null;
+function tweenTo(pos, target, dur = 900) {
+  tween = { p0: camera.position.clone(), t0: controls.target.clone(), p1: pos.clone(), t1: target.clone(), start: performance.now(), dur };
+}
+function stepTween(now) {
+  if (!tween) return;
+  let k = Math.min(1, (now - tween.start) / tween.dur); const e = k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
+  camera.position.lerpVectors(tween.p0, tween.p1, e); controls.target.lerpVectors(tween.t0, tween.t1, e);
+  if (k >= 1) tween = null;
+}
+controls.addEventListener('start', () => { tween = null; });
+
+$('xray').addEventListener('click', () => { state.xray = !state.xray; applyXray(); });
+$('reset').addEventListener('click', () => { state.level = 'alles'; renderChips(); applyVisibility(); hideInfo(); tweenTo(state.home.pos, state.home.target); });
+$('under').addEventListener('click', () => {
+  const t = state.home.target.clone(); t.y = -1.2 * state.ex;
+  const p = new THREE.Vector3(t.x - 70, -4.6 * state.ex, t.z + 95);
+  tweenTo(p, t, 1100);
+});
+const depthIn = $('depth');
+depthIn.addEventListener('input', () => {
+  const old = state.ex; state.ex = parseFloat(depthIn.value); applyDepth();
+  // keep the camera focused on the same level when it is below ground
+  if (controls.target.y < -0.01 && !tween) { const f = state.ex / old; const dy = controls.target.y * f - controls.target.y; controls.target.y += dy; camera.position.y += dy; }
+});
+
+// ---------------------------------------------------------------- picking + info card
+const ray = new THREE.Raycaster(); const ndc = new THREE.Vector2();
+let down = null;
+renderer.domElement.addEventListener('pointerdown', (e) => { down = { x: e.clientX, y: e.clientY, t: performance.now() }; });
+renderer.domElement.addEventListener('pointerup', (e) => {
+  if (!down) return; const moved = Math.hypot(e.clientX - down.x, e.clientY - down.y); const dt = performance.now() - down.t; down = null;
+  if (moved > 8 || dt > 600) return;
+  const r = renderer.domElement.getBoundingClientRect();
+  ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+  ray.setFromCamera(ndc, camera);
+  const vis = pickables.filter((m) => { let o = m; while (o) { if (!o.visible) return false; o = o.parent; } return true; });
+  const hit = ray.intersectObjects(vis, false).find((h) => recForFace(h.object.geometry, h.faceIndex));
+  if (!hit) return hideInfo();
+  showInfo(recForFace(hit.object.geometry, hit.faceIndex));
+});
+function addr(t) { return t && t['addr:street'] ? `${t['addr:street']} ${t['addr:housenumber'] || ''}${t['addr:unit'] ? ' ' + t['addr:unit'] : ''}`.trim() : null; }
+const TYPE_NL = { house: 'Woonhuis', residential: 'Woongebouw', detached: 'Vrijstaand huis', semidetached_house: 'Twee-onder-een-kap', terrace: 'Rijtjeshuis', apartments: 'Appartementen', garage: 'Garage', garages: 'Garages', shed: 'Schuur', commercial: 'Bedrijfspand', retail: 'Winkel', school: 'School', church: 'Kerk', yes: 'Gebouw', bungalow: 'Bungalow', office: 'Kantoor', industrial: 'Bedrijfshal', carport: 'Carport', greenhouse: 'Kas', farm: 'Boerderij', public: 'Publiek gebouw', hut: 'Hut', roof: 'Overkapping' };
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+function showInfo(rec) {
+  let html;
+  if (rec.kind === 'building') {
+    const t = rec.tags; const a = addr(t);
+    const rows = [
+      ['Adres', a || 'onbekend'], ['Type', TYPE_NL[t.building] || t.building],
+      ['Bouwjaar', t.start_date || 'onbekend'],
+      ['Hoogte', `${NL(rec.height, 1)} m (${rec.source})`], ['Oppervlakte', `${NL(Math.round(rec.area))} m²`],
+    ];
+    if (t.name) rows.unshift(['Naam', t.name]);
+    html = `<h2>${esc(a || t.name || TYPE_NL[t.building] || 'Gebouw')}</h2><dl>${rows.map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join('')}</dl>`;
+  } else {
+    const L = rec.layer;
+    const rows = [['Soort', rec.role], ['Straat', rec.street || '–'], ['Diepte', rec.osm && rec.tags && rec.tags.depth ? rec.tags.depth + ' m (OSM)' : fmtDepth(L.depth)], ['Ligging', rec.osm ? 'volgens OpenStreetMap' : L.ligging]];
+    if (rec.address) rows.splice(2, 0, ['Aansluiting', rec.address]);
+    html = `<h2><span class="lbl" style="padding:0;box-shadow:none;background:none"><span class="dot" style="background:#${L.color.toString(16).padStart(6, '0')}"></span></span>${esc(rec.name)}</h2><dl>${rows.map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join('')}</dl>
+      <div class="note">${rec.osm ? 'Uit OpenStreetMap; ligging en diepte niet gegarandeerd.' : 'Indicatief, geen KLIC. Werkelijke ligging kan afwijken.'}</div>`;
+  }
+  $('infobody').innerHTML = html; positionInfo(); $('info').classList.add('show');
+}
+function hideInfo() { $('info').classList.remove('show'); }
+$('infoclose').addEventListener('click', hideInfo);
+function positionInfo() {
+  const top = $('top').getBoundingClientRect().bottom + 8;
+  $('info').style.top = top + 'px';
+}
+
+// ---------------------------------------------------------------- loop / resize
+function resize() {
+  const w = window.innerWidth, h = window.innerHeight;
+  camera.aspect = w / h; camera.updateProjectionMatrix(); renderer.setSize(w, h); labelRenderer.setSize(w, h); positionInfo();
+}
+window.addEventListener('resize', resize);
+window.addEventListener('orientationchange', () => setTimeout(resize, 250));
+function loop(now) {
+  stepTween(now); controls.update();
+  renderer.render(scene, camera);
+  for (const o of labels) { let v = true, p = o.parent; while (p) { if (!p.visible) { v = false; break; } p = p.parent; } o.element.style.display = v ? '' : 'none'; }
+  labelRenderer.render(scene, camera);
+  requestAnimationFrame(loop);
+}
+
+// ---------------------------------------------------------------- start
+let started = false;
+async function start() {
+  setLoading('Oranjelaan laden…');
+  try {
+    const data = await loadData();
+    setLoading('3D-model opbouwen…');
+    await new Promise((r) => setTimeout(r, 30));
+    if (!started) {
+      build(data); started = true;
+      renderChips(); applyDepth(); applyVisibility();
+      requestAnimationFrame(loop);
+    }
+    overlay.classList.add('hide');
+    window.__twinReady = true;
+  } catch (err) {
+    console.warn(err);
+    setError('Laden is mislukt: ' + (err && err.message ? err.message : 'onbekende fout') + '. Controleer je verbinding en probeer het opnieuw.');
+  }
+}
+retry.addEventListener('click', start);
+start();
+</script>
+</body>
+</html>
