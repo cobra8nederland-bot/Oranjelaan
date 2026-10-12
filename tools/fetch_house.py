@@ -63,4 +63,25 @@ try:
 except Exception as e:
     print("MISLUKT 3dbag", e, file=sys.stderr)
 
-save("meta.json", {"query": QUERY, "center_rd": [x, y], "bbox_rd": bbox})
+# Detail: scherpere luchtfoto van alleen de kavel + kadastraal perceel
+rd = 30
+bbd = (x - rd, y - rd, x + rd, y + rd)
+bbds = ",".join(f"{v:.2f}" for v in bbd)
+for name, url, binary in [
+    ("luchtfoto_detail.jpg", "https://service.pdok.nl/hwh/luchtfotorgb/wms/v1_0?" + urllib.parse.urlencode({
+        "SERVICE": "WMS", "VERSION": "1.3.0", "REQUEST": "GetMap", "LAYERS": "Actueel_orthoHR", "STYLES": "",
+        "CRS": "EPSG:28992", "BBOX": bbds, "WIDTH": 2048, "HEIGHT": 2048, "FORMAT": "image/jpeg"}), True),
+    ("perceel.json", "https://service.pdok.nl/kadaster/kadastralekaart/wfs/v5_0?" + urllib.parse.urlencode({
+        "service": "WFS", "version": "2.0.0", "request": "GetFeature", "typeNames": "kadastralekaart:Perceel",
+        "outputFormat": "application/json", "srsName": "EPSG:28992", "bbox": bbds + ",urn:ogc:def:crs:EPSG::28992"}), False),
+]:
+    try:
+        data = get(url, binary)
+        if binary:
+            open(OUT + name, "wb").write(data); print("opgeslagen", name, len(data), "bytes")
+        else:
+            save(name, data)
+    except Exception as e:
+        print("MISLUKT", name, e, file=sys.stderr)
+
+save("meta.json", {"query": QUERY, "center_rd": [x, y], "bbox_rd": bbox, "bbox_detail_rd": bbd})
