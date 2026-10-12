@@ -32,7 +32,6 @@ for name, url, binary in [
     ("bag_vbo.json", "https://service.pdok.nl/lv/bag/wfs/v2_0?" + urllib.parse.urlencode({
         "service": "WFS", "version": "2.0.0", "request": "GetFeature", "typeName": "bag:verblijfsobject",
         "outputFormat": "application/json", "srsName": "EPSG:28992", "bbox": bb + ",urn:ogc:def:crs:EPSG::28992"}), False),
-    ("3dbag.json", "https://api.3dbag.nl/collections/pand/items?" + urllib.parse.urlencode({"bbox": bb, "limit": 100}), False),
     ("luchtfoto.jpg", "https://service.pdok.nl/hwh/luchtfotorgb/wms/v1_0?" + urllib.parse.urlencode({
         "SERVICE": "WMS", "VERSION": "1.3.0", "REQUEST": "GetMap", "LAYERS": "Actueel_orthoHR", "STYLES": "",
         "CRS": "EPSG:28992", "BBOX": bb, "WIDTH": 2048, "HEIGHT": 2048, "FORMAT": "image/jpeg"}), True),
@@ -45,5 +44,20 @@ for name, url, binary in [
             save(name, data)
     except Exception as e:
         print("MISLUKT", name, e, file=sys.stderr)
+
+# 3DBAG: alle pagina's binnen de bbox
+try:
+    url = "https://api.3dbag.nl/collections/pand/items?" + urllib.parse.urlencode({"bbox": bb, "limit": 100})
+    first, feats = None, []
+    while url:
+        page = get(url)
+        first = first or page
+        feats += page.get("features", [])
+        url = next((l["href"] for l in page.get("links", []) if l.get("rel") == "next"), None)
+        print("3dbag pagina", len(feats))
+    first["features"] = feats
+    save("3dbag.json", first)
+except Exception as e:
+    print("MISLUKT 3dbag", e, file=sys.stderr)
 
 save("meta.json", {"query": QUERY, "center_rd": [x, y], "bbox_rd": bbox})
