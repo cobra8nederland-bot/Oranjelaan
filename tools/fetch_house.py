@@ -52,7 +52,10 @@ try:
     while url:
         page = get(url)
         first = first or page
-        feats += page.get("features", [])
+        tr = page.get("metadata", {}).get("transform")
+        for f in page.get("features", []):
+            f["transform"] = tr  # transform verschilt per pagina
+            feats.append(f)
         url = next((l["href"] for l in page.get("links", []) if l.get("rel") == "next"), None)
         print("3dbag pagina", len(feats))
     first["features"] = feats
